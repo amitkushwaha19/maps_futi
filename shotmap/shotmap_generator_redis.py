@@ -4,7 +4,7 @@ Shotmap Generator - Redis Stream Version
 ========================================
 
 This script generates shotmap data for matches using Redis streams as data source,
-following the same pattern as momentum_generator.py and action_heatmap_generator_redis.py.
+following the same pattern as shotmap_generator.py.
 It exports frontend-friendly JSON for easy consumption by the frontend team.
 
 Usage:

@@ -327,4 +327,9 @@ if __name__ == "__main__":
         # Uncomment the line below to show the shotmap figure
         # generator.show_shotmap_figure()
         
-        print(f"✅ Shotmap generation complete for match_id {match_id}")
+        print(f"✅ Shotmap generation c)
+    print(f"🎨 To show figure, uncomment: generator.show_shotmap_figure()")
+
+
+if __name__ == "__main__":
+    main()

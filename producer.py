@@ -147,8 +147,8 @@ def fetch_and_push_match(match_id: int, match_info: Dict) -> bool:
 def fetch_and_process_window():
     """Fetch matches in UTC rolling window and push events to stream"""
     utc_today = datetime.now(timezone.utc).date()
-    min_date = (utc_today - timedelta(days=3)).strftime("%Y-%m-%d")
-    max_date = (utc_today + timedelta(days=3)).strftime("%Y-%m-%d")
+    min_date ="2025-6-25" #(utc_today - timedelta(days=3)).strftime("%Y-%m-%d")
+    max_date = "2025-6-27" #(utc_today + timedelta(days=3)).strftime("%Y-%m-%d")
     
     logger.info(f"[Window Check] Fetching matches from {min_date} to {max_date}")
     

@@ -247,13 +247,59 @@ def process_event_message(match_id: int, match_info: Dict, events_json: str):
         events["season_id"] = match_info.get("season_id")
         events["statsbomb_match_id"] = match_id
 
-        # Determine home/away
+        # Determine home/away using StatsBomb match info (not team_id.mode())
         if "team_id" in events.columns and len(events["team_id"].dropna()) > 0:
-            home_team_id = events["team_id"].mode().iloc[0]
-            events["home"] = events["team_id"] == home_team_id
-            events["away"] = events["team_id"] != home_team_id
-            events["home"] = events["home"].map({True: "home", False: "away"})
-            events["away"] = events["away"].map({True: "away", False: "home"})
+            home_team_name = match_info.get("match_home_team_name")
+            away_team_name = match_info.get("match_away_team_name")
+            
+            # Create team_name column first to map team_id to team names
+            events["team_name_temp"] = events["team_id"].astype(str)  # Fallback
+            
+            # Get unique team_ids and their corresponding names from the data
+            team_ids = events["team_id"].unique()
+            
+            if len(team_ids) >= 2 and home_team_name and away_team_name:
+                # Method 1: Try to match team names if available in event data
+                if "team_name" in events.columns:
+                    team_name_mapping = events.groupby("team_id")["team_name"].first().to_dict()
+                    
+                    # Find which team_id corresponds to home/away team
+                    home_team_id = None
+                    away_team_id = None
+                    
+                    for tid, tname in team_name_mapping.items():
+                        if str(tname).lower() == str(home_team_name).lower():
+                            home_team_id = tid
+                        elif str(tname).lower() == str(away_team_name).lower():
+                            away_team_id = tid
+                    
+                    if home_team_id is not None and away_team_id is not None:
+                        events["home"] = events["team_id"].apply(lambda x: "home" if x == home_team_id else "away")
+                        logger.info(f"✓ Mapped teams by name: {home_team_name} (ID: {home_team_id}) = home, {away_team_name} (ID: {away_team_id}) = away")
+                    else:
+                        # Method 2: Use consistent team_id ordering (smaller ID = home)
+                        sorted_team_ids = sorted(team_ids)
+                        home_team_id = sorted_team_ids[0]  # Consistent assignment
+                        events["home"] = events["team_id"].apply(lambda x: "home" if x == home_team_id else "away")
+                        logger.info(f"✓ Mapped teams by ID order: Team {home_team_id} = home, Team {sorted_team_ids[1]} = away")
+                else:
+                    # Method 2: Use consistent team_id ordering (smaller ID = home)
+                    sorted_team_ids = sorted(team_ids)
+                    home_team_id = sorted_team_ids[0]  # Consistent assignment
+                    events["home"] = events["team_id"].apply(lambda x: "home" if x == home_team_id else "away")
+                    logger.info(f"✓ Mapped teams by ID order: Team {home_team_id} = home, Team {sorted_team_ids[1]} = away")
+            else:
+                # Fallback: Use the old logic if we can't determine proper mapping
+                logger.warning("⚠️ Could not determine proper home/away mapping, using fallback logic")
+                home_team_id = events["team_id"].mode().iloc[0]
+                events["home"] = events["team_id"].apply(lambda x: "home" if x == home_team_id else "away")
+            
+            # Create away column (opposite of home)
+            events["away"] = events["home"].map({"home": "away", "away": "home"})
+            
+            # Clean up temporary column
+            if "team_name_temp" in events.columns:
+                events.drop("team_name_temp", axis=1, inplace=True)
 
         events["team_name"] = events.apply(
             lambda row: match_info["match_home_team_name"] if row.get("home") == "home"
