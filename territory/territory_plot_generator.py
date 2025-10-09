@@ -1,18 +1,13 @@
 #!/usr/bin/env python3
 """
-Territory Plot Generator - Redis Stream Version
-===============================================
-
-This script generates territory plot data for matches using Redis streams as data source,
-following the same pattern as momentum_generator.py. It exports frontend-friendly JSON
-for easy consumption by the frontend team.
+Territory Plot Generator - FIXED VERSION
+A dedicated script for generating territory visualization data for a specific match.
 
 Usage:
-    python territory_plot_generator.py
-
-Output:
-    - JSON files with territory data for each match
-    - Optional figure display (uncomment show_territory_figure())
+    python territory_plot_generator_fixed.py <game_id>
+    
+Example:
+    python territory_plot_generator_fixed.py 4491
 """
 
 import json
@@ -21,20 +16,12 @@ import os
 import pandas as pd
 import numpy as np
 from typing import Dict, List, Any
-from pathlib import Path
-import redis
 
-# Add src to path for imports
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# Add the src directory to path
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
-try:
-    from futiplot.match_card.match_card_charts import df_match_territory
-    from futiplot.soccer.pitch import plot_pitch
-    from futiplot.utils import futicolor
-except ImportError as e:
-    print(f"❌ Import error: {e}")
-    print("Make sure you're running from the correct directory")
-    sys.exit(1)
+from futiplot.match_card.match_card_charts import df_match_territory
+from futiplot.utils import load_sample_data
 
 class TerritoryPlotGenerator:
     """Generate territory plot data for a specific match"""
