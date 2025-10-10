@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
-import spadl_processing_functions
 from scipy import sparse
+
+from functions import spadl_processing_functions
 
 def prep_X(df, feat_names, convert_to_sparse=True):
     """ Preprocess the feature DataFrame:
@@ -72,13 +73,13 @@ def vaep_concedes_label(actions, nr_actions=10):
     return pd.DataFrame({'concedes': res})
 
 def vaep_game_labels(game, actions):
-    tmp = actions[actions['match_id'] == game].copy()
+    tmp = actions[actions['game_id'] == game].copy()
     
     scores = vaep_scores_label(tmp)
     concedes = vaep_concedes_label(tmp)
     
     result = pd.concat([scores, concedes], axis=1)
-    result['match_id'] = game
+    result['game_id'] = game
     
     return result
 
@@ -92,7 +93,7 @@ def vaep_add_gamestates(actions, nb_prev_actions=3):
     if nb_prev_actions > 1:
         for i in range(1, nb_prev_actions):
             prev_actions = actions.copy()
-            prev_actions = prev_actions.groupby(['match_id', 'period_id']).apply(
+            prev_actions = prev_actions.groupby(['game_id', 'period_id']).apply(
                 lambda group: group.shift(i)
             ).reset_index(drop=True)
             
@@ -341,16 +342,16 @@ def vaep_team_features(gamestates):
 def vaep_time_features(gamestates):
     
     def calc_time_overall(df):
-        period_times = df.groupby(['match_id', 'period_id']).agg(
+        period_times = df.groupby(['game_id', 'period_id']).agg(
             period_end_time=('time_seconds', 'max'),
             period_start_time=('time_seconds', 'min')
         ).reset_index()
         
         period_times['period_length'] = period_times['period_end_time'] - period_times['period_start_time']
-        period_times['prev_period_length'] = period_times.groupby('match_id')['period_length'].shift(1).fillna(0)
-        period_times['total_time_period_start'] = period_times.groupby('match_id')['prev_period_length'].cumsum()
+        period_times['prev_period_length'] = period_times.groupby('game_id')['period_length'].shift(1).fillna(0)
+        period_times['total_time_period_start'] = period_times.groupby('game_id')['prev_period_length'].cumsum()
         
-        df = df.merge(period_times[['match_id', 'period_id', 'total_time_period_start']], on=['match_id', 'period_id'])
+        df = df.merge(period_times[['game_id', 'period_id', 'total_time_period_start']], on=['game_id', 'period_id'])
         df['time_seconds_overall'] = df['time_seconds'] + df['total_time_period_start']
         return df[['period_id', 'time_seconds', 'time_seconds_overall']]
     
@@ -532,8 +533,8 @@ def vaep_generate_features_game(gamestates):
 def vaep_generate_features_all_games(df):
 
     all_features=pd.DataFrame()
-    for game in df['match_id'].unique():
-        df_game=df[df['match_id']==game]
+    for game in df['game_id'].unique():
+        df_game=df[df['game_id']==game]
         gamestates_game = vaep_add_gamestates(df_game, nb_prev_actions=3)
         features_game = vaep_generate_features_game(gamestates_game)
         all_features=pd.concat([all_features, features_game], ignore_index=True)

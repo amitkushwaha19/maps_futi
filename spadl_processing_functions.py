@@ -186,7 +186,7 @@ def order_tackles(df):
     # Orders so that take ons always come before tackles
 
     # Create the next_* columns
-    df['next_game'] = df['match_id'].shift(-1)
+    df['next_game'] = df['game_id'].shift(-1)
     df['next_period'] = df['period_id'].shift(-1)
     df['next_type_name'] = df['type_name'].shift(-1)
     df['next_team'] = df['team_id'].shift(-1)
@@ -199,16 +199,16 @@ def order_tackles(df):
             row['next_type_name'] == 'take_on' and 
             row['team_id'] != row['next_team'] and 
             row['time_seconds'] == row['next_time'] and 
-            row['match_id'] == row['next_game'] and 
+            row['game_id'] == row['next_game'] and 
             row['period_id'] == row['next_period']
         ) else row['action_id'], axis=1
     )
 
-    # Arrange by match_id, period_id, and action_id
-    df = df.sort_values(by=['match_id', 'period_id', 'action_id'])
+    # Arrange by game_id, period_id, and action_id
+    df = df.sort_values(by=['game_id', 'period_id', 'action_id'])
 
     # Reassign action_id to be sequential
-    df['action_id'] = df.groupby('match_id').cumcount() + 1
+    df['action_id'] = df.groupby('game_id').cumcount() + 1
 
     # Drop the next_* columns
     df = df.drop(columns=[col for col in df.columns if col.startswith('next_')])
@@ -227,13 +227,13 @@ def extra_interceptions(df):
     df['prev_action_type'] = df['type_name'].shift(1)
     df['prev_result_name'] = df['result_name'].shift(1)
     df['prev_team'] = df['team_id'].shift(1)
-    df['prev_game'] = df['match_id'].shift(1)
+    df['prev_game'] = df['game_id'].shift(1)
     df['prev_period'] = df['period_id'].shift(1)
     df['prev_time'] = df['time_seconds'].shift(1)
 
     # Filter for actions where the prior action was the opposition
     extra_interception_info = df[
-        (df['prev_game'] == df['match_id']) &
+        (df['prev_game'] == df['game_id']) &
         (df['prev_period'] == df['period_id']) &
         (df['prev_team'] != df['team_id'])
     ].copy()
@@ -265,10 +265,10 @@ def extra_interceptions(df):
     extra_interception_info['y_end'] = extra_interception_info['y_start']
 
     # Combine the original DataFrame with the extra interception info
-    out = pd.concat([df, extra_interception_info]).sort_values(by=['match_id', 'period_id', 'action_id'])
+    out = pd.concat([df, extra_interception_info]).sort_values(by=['game_id', 'period_id', 'action_id'])
 
     # Reassign action_id to be sequential
-    out['action_id'] = out.groupby('match_id').cumcount() + 1
+    out['action_id'] = out.groupby('game_id').cumcount() + 1
 
     #Retain only desired columns
     out = out.drop(columns=[col for col in out.columns if col.startswith('prev_')])
@@ -283,7 +283,7 @@ def extra_out_result(df):
     # Equivalent to _extra_from_shots from original function
 
     # Create the next_* columns
-    df['next_game'] = df['match_id'].shift(-1)
+    df['next_game'] = df['game_id'].shift(-1)
     df['next_period'] = df['period_id'].shift(-1)
     df['next_action'] = df['type_name'].shift(-1)
 
@@ -292,11 +292,11 @@ def extra_out_result(df):
 
     # Update result_name and result_id based on the out condition
     df['result_name'] = df.apply(
-        lambda row: 'out' if row['out'] == 1 and row['next_game'] == row['match_id'] and row['next_period'] == row['period_id'] else row['result_name'],
+        lambda row: 'out' if row['out'] == 1 and row['next_game'] == row['game_id'] and row['next_period'] == row['period_id'] else row['result_name'],
         axis=1
     )
     df['result_id'] = df.apply(
-        lambda row: 6 if row['out'] == 1 and row['next_game'] == row['match_id'] and row['next_period'] == row['period_id'] else row['result_id'],
+        lambda row: 6 if row['out'] == 1 and row['next_game'] == row['game_id'] and row['next_period'] == row['period_id'] else row['result_id'],
         axis=1
     )
 
@@ -311,7 +311,7 @@ def remove_consecutive_interceptions(df: pd.DataFrame) -> pd.DataFrame:
     keeping only the first one in any consecutive run.
     """
     # 1. Build prev_* columns
-    df['prev_game']    = df['match_id'].shift(1)
+    df['prev_game']    = df['game_id'].shift(1)
     df['prev_period']  = df['period_id'].shift(1)
     df['prev_player']  = df['player_id'].shift(1)
     df['prev_type']    = df['type_name'].shift(1)
@@ -323,7 +323,7 @@ def remove_consecutive_interceptions(df: pd.DataFrame) -> pd.DataFrame:
     drop_mask = (
         (df['type_name'] == 'interception') &
         (df['prev_type'] == 'interception') &
-        (df['match_id'] == df['prev_game']) &
+        (df['game_id'] == df['prev_game']) &
         (df['period_id'] == df['prev_period']) &
         (df['player_id'] == df['prev_player'])
     )
@@ -336,7 +336,7 @@ def remove_consecutive_interceptions(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     # Reassign action_id to be sequential
-    out['action_id'] = out.groupby('match_id').cumcount() + 1
+    out['action_id'] = out.groupby('game_id').cumcount() + 1
 
     return out
 
@@ -345,7 +345,7 @@ def adjust_interception_clearance_result(df: pd.DataFrame) -> pd.DataFrame:
     Add result columns for interception events.
     """
     # 1. Build prev_* columns
-    df['next_game']    = df['match_id'].shift(-1)
+    df['next_game']    = df['game_id'].shift(-1)
     df['next_period']  = df['period_id'].shift(-1)
     df['next_team']    = df['team_id'].shift(-1)
     df['next_type']    = df['type_name'].shift(-1)
@@ -354,13 +354,13 @@ def adjust_interception_clearance_result(df: pd.DataFrame) -> pd.DataFrame:
     success_mask = (
         (df['type_name'].isin(['interception','clearance'])) &
         (df['next_team'] == df['team_id']) &
-        (df['match_id'] == df['next_game']) &
+        (df['game_id'] == df['next_game']) &
         (df['period_id'] == df['next_period'])
     )
     fail_mask = (
         (df['type_name'].isin(['interception','clearance'])) &
         (df['next_team'] != df['team_id']) &
-        (df['match_id'] == df['next_game']) &
+        (df['game_id'] == df['next_game']) &
         (df['period_id'] == df['next_period'])
     )
     out_mask = (
@@ -802,7 +802,7 @@ def wyscout_add_kickoff_indicator(df_actions):
     # Shift events dataframe by one timestep
     df_actions_prev = df_actions.shift(1)
 
-    same_game = df_actions["match_id"] == df_actions_prev["match_id"]
+    same_game = df_actions["game_id"] == df_actions_prev["game_id"]
     same_period = df_actions["period_id"] == df_actions_prev["period_id"]
     goal_prev = df_actions_prev["type_name"].isin(['shot', 'shot_freekick', 'shot_penalty']) & (df_actions_prev["result_name"] == 'success')
     near_midfield = (
@@ -830,13 +830,13 @@ def calculate_team_xg(
 ) -> pd.DataFrame:
     """
     Adds xg_team and xg_possession to the SPADL DataFrame.
-    - data: must include [match_id, period_id, team_id, possession_id, action_id, type_name, xg_col]
+    - data: must include [game_id, period_id, team_id, possession_id, action_id, type_name, xg_col]
     - penalties: include penalty shots in xG calculations
     - num_actions: how many prior actions (of any type) to look back over (None == all, only valid when grouping by possession)
     - possession_group: if True, confine look-back window to same possession
     """
     # 1) sanity checks
-    required = ["match_id","period_id","team_id","possession_id","action_id","type_name",xg_col]
+    required = ["game_id","period_id","team_id","possession_id","action_id","type_name",xg_col]
     for c in required:
         if c not in data.columns:
             raise ValueError(f"Missing required column: {c}")
@@ -847,7 +847,7 @@ def calculate_team_xg(
         )
 
     # 2) copy & sort
-    df = data.copy().sort_values(["match_id","period_id","action_id"])
+    df = data.copy().sort_values(["game_id","period_id","action_id"])
 
     # 3) build array of xG contributions for discounting:
     shot_types = {"shot","shot_freekick","shot_penalty"}
@@ -860,7 +860,7 @@ def calculate_team_xg(
     df["_xg_calc"] = xg_calc
 
     # 4) group definitions
-    group_cols = ["match_id","period_id","possession_id"] if possession_group else ["match_id","period_id"]
+    group_cols = ["game_id","period_id","possession_id"] if possession_group else ["game_id","period_id"]
 
     def _compute_probs(group: pd.DataFrame) -> pd.Series:
         # assumes group is sorted by action_id
@@ -907,7 +907,7 @@ def calculate_team_xg(
     # 7) sum xg_team per possession
     df["xg_possession"] = (
         df
-        .groupby(["match_id","period_id","team_id","possession_id"], sort=False)["xg_team"]
+        .groupby(["game_id","period_id","team_id","possession_id"], sort=False)["xg_team"]
         .transform("sum")
     )
 
@@ -940,7 +940,7 @@ def format_event_data(data, in_format="ath_opta"):
 
         data['season'] = data['season_name'].apply(lambda x: x[:4] + ("-" + x[8:9] if x[5:6] == "/" else ""))
         data['home'] = data['home'].apply(lambda x: "home" if x else "away")
-        data['original_event_id'] = data.apply(lambda row: f"{row['match_id']}-{row['team_id']}-{row['period_id']}-{row['time_seconds']}-{row['event_id']}", axis=1)
+        data['original_event_id'] = data.apply(lambda row: f"{row['game_id']}-{row['team_id']}-{row['period_id']}-{row['time_seconds']}-{row['event_id']}", axis=1)
 
         # Set some vars
         pitch_length = 1.05
@@ -1033,8 +1033,8 @@ def format_event_data(data, in_format="ath_opta"):
         )
 
         spadl = data[data['type_name'] != 'non_action'].copy()
-        spadl = spadl.sort_values(by=['date', 'match_id', 'period_id', 'time_seconds', 'timestamp'])
-        spadl['action_id'] = spadl.groupby('match_id').cumcount() + 1
+        spadl = spadl.sort_values(by=['date', 'game_id', 'period_id', 'time_seconds', 'timestamp'])
+        spadl['action_id'] = spadl.groupby('game_id').cumcount() + 1
 
         spadl = spadl.drop(columns=[
             "opta_team_id", "opp_opta_team_id", "full_name", "opp_full_name", "event_id", "league_country",
@@ -1046,7 +1046,7 @@ def format_event_data(data, in_format="ath_opta"):
         spadl['action_id'] = spadl['action_id'].astype(float)
 
         # derive carry events between events that meet dribble length distance qualifications
-        spadl = spadl.sort_values(by=['match_id', 'period_id', 'action_id'])
+        spadl = spadl.sort_values(by=['game_id', 'period_id', 'action_id'])
         spadl['dx'] = (spadl['x_start'].shift(-1) * pitch_length) - (spadl['x_end'] * pitch_length)
         spadl['dy'] = (spadl['y_start'].shift(-1) * pitch_width) - (spadl['y_end'] * pitch_width)
         # mike - combine distance filter with time, so dribbles that actually occur that are long in distance are included but not if they only take 2 seconds etc
@@ -1058,7 +1058,7 @@ def format_event_data(data, in_format="ath_opta"):
         spadl['same_phase'] = spadl['dt'] < max_dribble_duration
         spadl['same_period'] = spadl['period_id'] == spadl['period_id'].shift(-1)
         spadl['same_possession'] = spadl['possession_number'] == spadl['possession_number'].shift(-1)
-        spadl['same_game'] = spadl['match_id'] == spadl['match_id'].shift(-1)
+        spadl['same_game'] = spadl['game_id'] == spadl['game_id'].shift(-1)
         spadl['not_stoppage'] = ~spadl['type_name'].shift(-1).isin(['corner_crossed', 'corner_short', 'shot_penalty', 'freekick_crossed', 'freekick_short', 'goalkick', 'throw_in'])
         spadl['dribble_idx'] = spadl['same_player'] & spadl['same_team'] & spadl['far_enough'] & spadl['not_too_far'] & spadl['same_phase'] & spadl['same_possession'] & spadl['same_period'] & spadl['same_game'] & spadl['not_stoppage']
 
@@ -1096,7 +1096,7 @@ def format_event_data(data, in_format="ath_opta"):
         carries['receiver'] = None
         carries['receiver_short'] = None
 
-        spadl = pd.concat([spadl, carries]).sort_values(by=['match_id', 'period_id', 'action_id'])
+        spadl = pd.concat([spadl, carries]).sort_values(by=['game_id', 'period_id', 'action_id'])
         spadl = spadl.drop(columns=['dx', 'dy', 'far_enough', 'not_too_far', 'dt', 'same_player', 'same_team', 'same_phase', 'same_period', 'same_possession', 'same_game', 'dribble_idx'])
 
         #resize xy coordinates
@@ -1107,7 +1107,7 @@ def format_event_data(data, in_format="ath_opta"):
 
         # Select the spadl columns only
         spadl = spadl[[
-            'action_id', 'period_id', 'time_seconds','elapsed_time', 'type_name', 'result_name', 'bodypart_name', 'x_start', 'y_start', 'x_end', 'y_end', 'match_id', 'team_id', 'player_id', 'receiver_id', 'original_event_id','home','xg'
+            'action_id', 'period_id', 'time_seconds','elapsed_time', 'type_name', 'result_name', 'bodypart_name', 'x_start', 'y_start', 'x_end', 'y_end', 'game_id', 'team_id', 'player_id', 'receiver_id', 'original_event_id','home','xg'
         ] ]
 
         #add spadl ids for results, bodyparts and action types
@@ -1150,7 +1150,7 @@ def format_event_data(data, in_format="ath_opta"):
             "recipient_id": "receiver_id",
             "team_name": "team",
             "match_date": "date",
-            "match_id": "match_id",
+            "match_id": "game_id",
             "id" : "event_id",
             "end_x" : "x_end",
             "end_y" : "y_end",
@@ -1167,7 +1167,7 @@ def format_event_data(data, in_format="ath_opta"):
 
         data['time_seconds'] = data['minute'] * 60 + data['second']
                 
-        data['original_event_id'] = data.apply(lambda row: f"{row['match_id']}-{row['team_id']}-{row['period_id']}-{row['time_seconds']}-{row['event_id']}", axis=1)
+        data['original_event_id'] = data.apply(lambda row: f"{row['game_id']}-{row['team_id']}-{row['period_id']}-{row['time_seconds']}-{row['event_id']}", axis=1)
 
         #mark kick-offs for phases
         #todo - consider these a separate event type
@@ -1284,13 +1284,13 @@ def format_event_data(data, in_format="ath_opta"):
         )
 
         spadl = data[data['type_name'] != 'non_action'].copy()
-        spadl = spadl.sort_values(by=['date', 'match_id', 'period_id', 'index'])
-        spadl['action_id'] = spadl.groupby('match_id').cumcount() + 1
+        spadl = spadl.sort_values(by=['date', 'game_id', 'period_id', 'index'])
+        spadl['action_id'] = spadl.groupby('game_id').cumcount() + 1
 
         spadl['action_id'] = spadl['action_id'].astype(float)
 
         # derive carry events between events that meet dribble length distance qualifications
-        spadl = spadl.sort_values(by=['match_id', 'period_id', 'action_id'])
+        spadl = spadl.sort_values(by=['game_id', 'period_id', 'action_id'])
         spadl['dx'] = (spadl['x_start'].shift(-1) * pitch_length) - (spadl['x_end'] * pitch_length)
         spadl['dy'] = (spadl['y_start'].shift(-1) * pitch_width) - (spadl['y_end'] * pitch_width)
         # mike - combine distance filter with time, so dribbles that actually occur that are long in distance are included but not if they only take 2 seconds etc
@@ -1301,7 +1301,7 @@ def format_event_data(data, in_format="ath_opta"):
         spadl['same_team'] = spadl['team_id'] == spadl['team_id'].shift(-1)
         spadl['same_phase'] = spadl['dt'] < max_dribble_duration
         spadl['same_period'] = spadl['period_id'] == spadl['period_id'].shift(-1)
-        spadl['same_game'] = spadl['match_id'] == spadl['match_id'].shift(-1)
+        spadl['same_game'] = spadl['game_id'] == spadl['game_id'].shift(-1)
         spadl['not_stoppage'] = ~spadl['type_name'].shift(-1).isin(['corner_crossed', 'corner_short', 'shot_penalty', 'freekick_crossed', 'freekick_short', 'goalkick', 'throw_in'])
         spadl['dribble_idx'] = spadl['same_player'] & spadl['same_team'] & spadl['far_enough'] & spadl['not_too_far'] & spadl['same_phase'] & spadl['same_period'] & spadl['same_game'] & spadl['not_stoppage']
 
@@ -1331,7 +1331,7 @@ def format_event_data(data, in_format="ath_opta"):
         carries['type_name'] = "dribble"
         carries['result_name'] = "success"
 
-        spadl = pd.concat([spadl, carries]).sort_values(by=['match_id', 'period_id', 'action_id'])
+        spadl = pd.concat([spadl, carries]).sort_values(by=['game_id', 'period_id', 'action_id'])
         spadl = spadl.drop(columns=['dx', 'dy', 'far_enough', 'not_too_far', 'dt', 'same_player', 'same_team', 'same_phase', 'same_period', 'same_game', 'dribble_idx'])
 
         #resize xy coordinates
@@ -1340,11 +1340,17 @@ def format_event_data(data, in_format="ath_opta"):
         spadl['y_start'] = (pitch_width * spadl['y_start']).round(2)
         spadl['y_end'] = (pitch_width * spadl['y_end']).round(2)
 
+        # Ensure position field is preserved from original data
+        if 'position' in spadl.columns:
+            spadl['position'] = spadl['position']
+        else:
+            spadl['position'] = ''
+
             # Select the spadl columns only
         spadl = spadl[[
             "action_id", "period_id", "time_seconds", "elapsed_time","type_name", "result_name", "bodypart_name",
-            "x_start", "y_start", "x_end", "y_end", "match_id", "team_id", "player_id", "receiver_id", 
-            "original_event_id", "home", "xg", "height", "through_ball", "position", "kickoff","key_pass","assist","season_id"
+            "x_start", "y_start", "x_end", "y_end", "game_id", "team_id", "player_id", "receiver_id", 
+            "original_event_id", "home", "xg", "height", "through_ball", "position", "kickoff","key_pass","assist"
         ] ]
 
         #add spadl ids for results, bodyparts and action types
@@ -1401,8 +1407,7 @@ def format_event_data(data, in_format="ath_opta"):
         data['height'] = data['pass.height']
         data["team_id"] = data["team.id"]
         data["team_name"] = data["team.name"]
-        data["match_id"] = data["matchId"]
-        data["season_id"] = data["seasonId"]
+        data["game_id"] = data["matchId"]
         data['time_seconds'] = data['minute'] * 60 + data['second']
         data["milliseconds"] = data['time_seconds'] * 1000
         data['through_ball']=np.where(data['through_pass'] == 1, True, False)
@@ -1410,7 +1415,7 @@ def format_event_data(data, in_format="ath_opta"):
         data['xg'] = data['shot.xg']
 
         #reorder before event fixes
-        data = data.sort_values(by=['match_id', 'period_id', 'matchTimestamp'])
+        data = data.sort_values(by=['game_id', 'period_id', 'matchTimestamp'])
 
         #apply wyscout specific event fixes
         data = fix_wyscout_events(data)
@@ -1419,7 +1424,7 @@ def format_event_data(data, in_format="ath_opta"):
         data['cross']=False
         data = mark_crosses_wyscout(data)
 
-        data['original_event_id'] = data.apply(lambda row: f"{row['match_id']}-{row['team_id']}-{row['period_id']}-{row['time_seconds']}-{row['event_id']}", axis=1)
+        data['original_event_id'] = data.apply(lambda row: f"{row['game_id']}-{row['team_id']}-{row['period_id']}-{row['time_seconds']}-{row['event_id']}", axis=1)
 
         # Set some vars
         pitch_length = 1.05
@@ -1533,13 +1538,13 @@ def format_event_data(data, in_format="ath_opta"):
         )
 
         spadl = data[data['type_name'] != 'non_action'].copy()
-        spadl = spadl.sort_values(by=['match_id', 'period_id', 'matchTimestamp'])
+        spadl = spadl.sort_values(by=['game_id', 'period_id', 'matchTimestamp'])
         spadl['action_id'] = range(1, len(spadl) + 1)
 
         spadl['action_id'] = spadl['action_id'].astype(float)
 
         # derive carry events between events that meet dribble length distance qualifications
-        spadl = spadl.sort_values(by=['match_id', 'period_id', 'action_id'])
+        spadl = spadl.sort_values(by=['game_id', 'period_id', 'action_id'])
         spadl['dx'] = (spadl['x_start'].shift(-1) * pitch_length) - (spadl['x_end'] * pitch_length)
         spadl['dy'] = (spadl['y_start'].shift(-1) * pitch_width) - (spadl['y_end'] * pitch_width)
         # mike - combine distance filter with time, so dribbles that actually occur that are long in distance are included but not if they only take 2 seconds etc
@@ -1550,7 +1555,7 @@ def format_event_data(data, in_format="ath_opta"):
         spadl['same_team'] = spadl['team_id'] == spadl['team_id'].shift(-1)
         spadl['same_phase'] = spadl['dt'] < max_dribble_duration
         spadl['same_period'] = spadl['period_id'] == spadl['period_id'].shift(-1)
-        spadl['same_game'] = spadl['match_id'] == spadl['match_id'].shift(-1)
+        spadl['same_game'] = spadl['game_id'] == spadl['game_id'].shift(-1)
         spadl['not_stoppage'] = ~spadl['type_name'].shift(-1).isin(['corner_crossed', 'corner_short', 'shot_penalty', 'freekick_crossed', 'freekick_short', 'goalkick', 'throw_in'])
         spadl['dribble_idx'] = spadl['same_player'] & spadl['same_team'] & spadl['far_enough'] & spadl['not_too_far'] & spadl['same_phase'] & spadl['same_period'] & spadl['same_game'] & spadl['not_stoppage']
 
@@ -1580,7 +1585,7 @@ def format_event_data(data, in_format="ath_opta"):
         carries['type_name'] = "dribble"
         carries['result_name'] = "success"
 
-        spadl = pd.concat([spadl, carries]).sort_values(by=['match_id', 'period_id', 'action_id'])
+        spadl = pd.concat([spadl, carries]).sort_values(by=['game_id', 'period_id', 'action_id'])
         spadl = spadl.drop(columns=['dx', 'dy', 'far_enough', 'not_too_far', 'dt', 'same_player', 'same_team', 'same_phase', 'same_period', 'same_game', 'dribble_idx'])
 
         #resize xy coordinates
@@ -1592,8 +1597,8 @@ def format_event_data(data, in_format="ath_opta"):
             # Select the spadl columns only
         spadl = spadl[[
             "action_id", "period_id", "time_seconds", "elapsed_time","type_name", "result_name", "bodypart_name",
-            "x_start", "y_start", "x_end", "y_end", "match_id", "team_id", "player_id", "receiver_id", 
-            "original_event_id", "home", "xg", "height", "through_ball", "position","season_id"
+            "x_start", "y_start", "x_end", "y_end", "game_id", "team_id", "player_id", "receiver_id", 
+            "original_event_id", "home", "xg", "height", "through_ball", "position"
         ] ]
 
         #add spadl ids for results, bodyparts and action types
@@ -1652,7 +1657,7 @@ def format_event_data(data, in_format="ath_opta"):
 
 def set_phase(data):
     
-    data = data.sort_values(by=['match_id', 'action_id'])
+    data = data.sort_values(by=['game_id', 'action_id'])
 
 
     # Extract columns as numpy arrays
@@ -1666,7 +1671,7 @@ def set_phase(data):
     y_end = data['y_end'].values
     time_seconds = data['time_seconds'].values
     period_id = data['period_id'].values
-    match_id = data['match_id'].values
+    game_id = data['game_id'].values
     type_name = data['type_name'].values
     height = data['height'].values
     team_id = data['team_id'].values
@@ -1707,7 +1712,7 @@ def set_phase(data):
         # below are velocity 5s calculations
         target_time = time_seconds[i] - 5
         # Find the index of the closest time less than or equal to target_time
-        valid_indices = np.where((time_seconds < time_seconds[i]) & (type_name != 'dribble') & (period_id==period_id[i]) & (match_id==match_id[i]))[0]
+        valid_indices = np.where((time_seconds < time_seconds[i]) & (type_name != 'dribble') & (period_id==period_id[i]) & (game_id==game_id[i]))[0]
         if len(valid_indices) > 0:
             closest_idx = valid_indices[np.argmin(np.abs(time_seconds[valid_indices] - target_time))]
             velocity_idx[i]=closest_idx
@@ -2760,13 +2765,13 @@ def add_possession_sequence_ids(data):
     data['phase_team_filled'] = data['phase_team'].fillna(-1)
 
     # Create masks for game changes and team changes that ignore contested phases
-    game_change = data['match_id'] != data['match_id'].shift(1)
+    game_change = data['game_id'] != data['game_id'].shift(1)
     team_change_without_contested = (data['phase_team_filled'] != data['phase_team_filled'].shift(1)) & \
                   (data['phase_team_filled'] != -1)
 
     # Calculate possession id
     data['possession_change'] = game_change | team_change_without_contested
-    data['possession_id'] = data.groupby('match_id')['possession_change'].cumsum()
+    data['possession_id'] = data.groupby('game_id')['possession_change'].cumsum()
 
 
 
@@ -2780,7 +2785,7 @@ def add_possession_sequence_ids(data):
     team_change_with_contested = (data['phase_team_filled'] != data['phase_team_filled'].shift(1))
     phase_type_change = (data['phase_type'] != data['phase_type'].shift(1))
     data['sequence_change'] = game_change | team_change_with_contested | throw_in_mask | corner_mask | free_kick_mask | penalty_mask | phase_type_change
-    data['sequence_id'] = data.groupby(['match_id'])['sequence_change'].cumsum()
+    data['sequence_id'] = data.groupby(['game_id'])['sequence_change'].cumsum()
 
     # Clean up intermediate columns
     data = data.drop(columns=['phase_team_filled', 'possession_change','sequence_change'])
@@ -2788,15 +2793,15 @@ def add_possession_sequence_ids(data):
     return data
 
 def add_gamestate(data):
-    # Step 1: Add opposing team information by reversing home/away to join to events on match_id and home
-    teams_home_reversed = data[['match_id', 'team_id', 'home']].drop_duplicates()
+    # Step 1: Add opposing team information by reversing home/away to join to events on game_id and home
+    teams_home_reversed = data[['game_id', 'team_id', 'home']].drop_duplicates()
     teams_home_reversed = teams_home_reversed.rename(columns={'team_id': 'opposing_team_id'})
     #mark home as away and vice versa
     teams_home_reversed['home'] = np.where(teams_home_reversed['home'] == "home", "away", "home")
-    data = data.merge(teams_home_reversed, on=['match_id', 'home'], how='left')
+    data = data.merge(teams_home_reversed, on=['game_id', 'home'], how='left')
     
-    # Step 2: Sort by match_id and period
-    data = data.sort_values(by=['match_id', 'action_id']).reset_index(drop=True)
+    # Step 2: Sort by game_id and period
+    data = data.sort_values(by=['game_id', 'action_id']).reset_index(drop=True)
     
     # Step 3: Identify scoring team
     conditions = [
@@ -2810,11 +2815,11 @@ def add_gamestate(data):
         
     ]
     data['scoring_team'] = np.select(conditions, choices, default=None)
-    data['scoring_team'] = data.groupby(['match_id'])['scoring_team'].fillna(method='ffill').fillna('No Goal')
+    data['scoring_team'] = data.groupby(['game_id'])['scoring_team'].fillna(method='ffill').fillna('No Goal')
     
     # Step 4: Calculate scores for each team. At this point own goals will be counted as goals for the team that scored them, so we need to adjust this after
-    data['total_score'] = data.groupby('match_id')['goal'].cumsum()
-    data['team_score'] = data.groupby(['match_id', 'scoring_team'])['goal'].cumsum()
+    data['total_score'] = data.groupby('game_id')['goal'].cumsum()
+    data['team_score'] = data.groupby(['game_id', 'scoring_team'])['goal'].cumsum()
     data['opposing_score'] = data['total_score'] - data['team_score']
     
     # Step 7: Calculate goals for and against, different from score because they adjust for own goals
@@ -2823,8 +2828,8 @@ def add_gamestate(data):
     
     
     # Step 6: Fill scores downward for all rows
-    data['goals_for'] = data.groupby(['match_id','team_id'])['goals_for'].fillna(method='ffill').fillna(0)
-    data['total_score'] = data.groupby(['match_id','team_id'])['total_score'].fillna(method='ffill').fillna(0)
+    data['goals_for'] = data.groupby(['game_id','team_id'])['goals_for'].fillna(method='ffill').fillna(0)
+    data['total_score'] = data.groupby(['game_id','team_id'])['total_score'].fillna(method='ffill').fillna(0)
     data['goals_against'] = data['total_score'] - data['goals_for']
     data['gd'] = data['goals_for'] - data['goals_against']
     

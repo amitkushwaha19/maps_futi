@@ -28,7 +28,7 @@ from dotenv import load_dotenv
 # Import processing functions
 sys.path.append(os.path.abspath(os.path.join('.', 'functions')))
 from functions import spadl_processing_functions
-from vaep_functions import vaep_generate_features_all_games, prep_X
+from functions.vaep_functions import vaep_generate_features_all_games, prep_X
 
 # Load environment
 load_dotenv()
